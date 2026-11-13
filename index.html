@@ -49,6 +49,8 @@
   #muteBtn { background: rgba(255,252,247,0.92); color: #2c2824; }
   #muteBtn:hover { background: #efe8de; }
   #muteBtn.on { background: #2c2824; color: #f7f3ec; }
+  #entranceBtn { background: #3d5a45; color: #f7f3ec; }
+  #entranceBtn:hover { background: #4f7358; }
   #movePad {
     display: none; pointer-events: auto; position: absolute; left: 16px; bottom: 96px;
     width: 118px; height: 118px; border-radius: 50%;
@@ -117,7 +119,7 @@
   }
   body.vr-on #hud #day, body.vr-on #hud #styles, body.vr-on #hud #viewBtn, body.vr-on #hud #cross,
   body.vr-on #movePad, body.vr-on #lookHint, body.vr-on #muteBtn, body.vr-on #topBar .actions #muteBtn,
-  body.vr-on #topBar .actions #viewBtn { display: none; }
+  body.vr-on #topBar .actions #viewBtn, body.vr-on #topBar .actions #entranceBtn { display: none; }
   body.vr-on #hint {
     display: block; bottom: 28px; white-space: normal; max-width: 86vw; text-align: center;
   }
@@ -140,6 +142,7 @@
   <div id="topBar">
     <div class="actions">
       <button id="muteBtn" type="button">Mute</button>
+      <button id="entranceBtn" type="button">Entrance</button>
       <button id="vrBtn" type="button">Enter VR</button>
       <button id="viewBtn" type="button">Dollhouse view</button>
     </div>
@@ -1287,6 +1290,34 @@ scene.add(ground);
 
 // —— floors ——
 floor(living, "marble", 2.2, 2.8, 0.16);
+(function welcomeMat() {
+  const c = document.createElement("canvas");
+  c.width = 512; c.height = 320;
+  const g = c.getContext("2d");
+  g.fillStyle = "#6b4a2e";
+  g.fillRect(0, 0, 512, 320);
+  g.fillStyle = "#5a3d26";
+  for (let y = 0; y < 320; y += 4) g.fillRect(0, y, 512, 2);
+  g.strokeStyle = "#3f2a1a";
+  g.lineWidth = 14;
+  g.strokeRect(18, 18, 476, 284);
+  g.fillStyle = "#f0e6d4";
+  g.font = "700 72px Georgia, serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText("WELCOME", 256, 160);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(3.2, 0.04, 1.85),
+    new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, metalness: 0 })
+  );
+  m.position.set(1.55, 0.035, 14.8);
+  m.receiveShadow = true;
+  m.castShadow = false;
+  scene.add(m);
+})();
 floor(nwtoi, "tile", 2, 2, 0.55);
 floor(cbed, "marble", 2.4, 2.4, 0.18);
 floor(alcove, "marble", 1.2, 1, 0.18);
@@ -1695,7 +1726,26 @@ function roomAt(x, z) {
 
 let yaw = -0.55;
 let pitch = -0.06;
+let yawTarget = yaw;
+let pitchTarget = pitch;
+let lookInertiaY = 0;
+let lookInertiaP = 0;
+const ENTRANCE = { x: -2.55, z: 14.8, yaw: -Math.PI / 2, pitch: -0.04 };
 camera.position.set(4.6, EYE, 11.2);
+function setLook(y, p) {
+  yaw = yawTarget = y;
+  pitch = pitchTarget = Math.max(-1.25, Math.min(1.25, p));
+  lookInertiaY = lookInertiaP = 0;
+}
+function goToEntrance() {
+  if (dollhouse) setDollhouse(false);
+  setLook(ENTRANCE.yaw, ENTRANCE.pitch);
+  if (renderer.xr.isPresenting) {
+    rig.position.set(ENTRANCE.x, 0, ENTRANCE.z);
+  } else {
+    camera.position.set(ENTRANCE.x, EYE, ENTRANCE.z);
+  }
+}
 const keys = {};
 addEventListener("keydown", (e) => {
   keys[e.code] = true;
@@ -1870,6 +1920,10 @@ function setDollhouse(on) {
 document.getElementById("viewBtn").addEventListener("click", (e) => {
   e.stopPropagation();
   setDollhouse(!dollhouse);
+});
+document.getElementById("entranceBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  goToEntrance();
 });
 document.querySelectorAll("#styles button").forEach((btn) => {
   btn.addEventListener("click", (e) => {
@@ -2128,8 +2182,7 @@ async function enterVrSession(session) {
     scene.add(camera);
     camera.position.set(_xrPos.x, EYE, _xrPos.z);
     camera.rotation.order = "YXZ";
-    yaw = Math.atan2(-_xrDir.x, -_xrDir.z);
-    pitch = 0;
+    setLook(Math.atan2(-_xrDir.x, -_xrDir.z), 0);
     camera.rotation.set(pitch, yaw, 0);
     vrBtn.textContent = "Enter VR";
     document.getElementById("hint").textContent = isTouchUi
@@ -2220,9 +2273,25 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
   if (e.target.closest && e.target.closest("#movePad")) return;
   dragging = true;
   lastX = e.clientX; lastY = e.clientY;
+  lookInertiaY = lookInertiaP = 0;
+  try { renderer.domElement.setPointerCapture(e.pointerId); } catch (_) {}
 });
-addEventListener("pointerup", () => { dragging = false; });
-addEventListener("pointercancel", () => { dragging = false; });
+function endLookDrag(e) {
+  if (!dragging) return;
+  dragging = false;
+  if (isTouchUi) {
+    // Short coast so the turn feels continuous after finger lift.
+    lookInertiaY *= 0.55;
+    lookInertiaP *= 0.55;
+  } else {
+    lookInertiaY = lookInertiaP = 0;
+  }
+  if (e && e.pointerId != null) {
+    try { renderer.domElement.releasePointerCapture(e.pointerId); } catch (_) {}
+  }
+}
+addEventListener("pointerup", endLookDrag);
+addEventListener("pointercancel", endLookDrag);
 addEventListener("pointermove", (e) => {
   if (dollhouse && dragging) {
     orbit.theta -= e.movementX * 0.005;
@@ -2232,14 +2301,34 @@ addEventListener("pointermove", (e) => {
   }
   if (!dragging || dollhouse || renderer.xr.isPresenting) return;
   const locked = document.pointerLockElement === renderer.domElement;
-  const dx = locked ? e.movementX : e.clientX - lastX;
-  const dy = locked ? e.movementY : e.clientY - lastY;
-  lastX = e.clientX; lastY = e.clientY;
-  if (!dx && !dy) return;
-  // Swipe / drag to turn only (no automatic gyro tilt on mobile).
-  yaw -= dx * (isTouchUi ? 0.0042 : 0.0022);
-  pitch -= dy * (isTouchUi ? 0.0036 : 0.0022);
-  pitch = Math.max(-1.25, Math.min(1.25, pitch));
+  const samples = (typeof e.getCoalescedEvents === "function" && e.getCoalescedEvents().length)
+    ? e.getCoalescedEvents()
+    : [e];
+  let sumDx = 0, sumDy = 0;
+  for (const pe of samples) {
+    if (locked) {
+      sumDx += pe.movementX || 0;
+      sumDy += pe.movementY || 0;
+    } else {
+      sumDx += pe.clientX - lastX;
+      sumDy += pe.clientY - lastY;
+      lastX = pe.clientX;
+      lastY = pe.clientY;
+    }
+  }
+  if (!sumDx && !sumDy) return;
+  const sensY = isTouchUi ? 0.0026 : 0.0022;
+  const sensP = isTouchUi ? 0.0021 : 0.0022;
+  const dYaw = -sumDx * sensY;
+  const dPitch = -sumDy * sensP;
+  if (isTouchUi) {
+    yawTarget += dYaw;
+    pitchTarget = Math.max(-1.25, Math.min(1.25, pitchTarget + dPitch));
+    lookInertiaY = dYaw * 0.65;
+    lookInertiaP = dPitch * 0.65;
+  } else {
+    setLook(yaw + dYaw, pitch + dPitch);
+  }
 });
 addEventListener("wheel", (e) => {
   if (!dollhouse) return;
@@ -2388,6 +2477,18 @@ function slide(owner, dx, dz) {
 function frame() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const presenting = renderer.xr.isPresenting;
+  if (!presenting && !dollhouse && isTouchUi) {
+    yawTarget += lookInertiaY;
+    pitchTarget = Math.max(-1.25, Math.min(1.25, pitchTarget + lookInertiaP));
+    const damp = Math.exp(-dt * 9.5);
+    lookInertiaY *= damp;
+    lookInertiaP *= damp;
+    if (Math.abs(lookInertiaY) < 0.00002) lookInertiaY = 0;
+    if (Math.abs(lookInertiaP) < 0.00002) lookInertiaP = 0;
+    const k = 1 - Math.exp(-dt * 22);
+    yaw += (yawTarget - yaw) * k;
+    pitch += (pitchTarget - pitch) * k;
+  }
   timeOfDay += (timeTarget - timeOfDay) * Math.min(1, dt * 3.5);
   applyTime(timeOfDay);
   const at = feet();
@@ -2490,9 +2591,9 @@ window.__debug = {
   goto(x, z, face, tilt) {
     setDollhouse(false);
     camera.position.set(x, EYE, z);
-    if (face != null) { yaw = face; camera.rotation.y = yaw; }
-    if (tilt != null) { pitch = tilt; camera.rotation.x = pitch; }
+    setLook(face != null ? face : yaw, tilt != null ? tilt : pitch);
   },
+  goToEntrance,
   layout: { living, nwtoi, cbed, alcove, midtoi, lobby, nebed, balcony, master, dress, mtoi, sbed, stoi, passage, kitchen, utility, east, south }
 };
 </script>
