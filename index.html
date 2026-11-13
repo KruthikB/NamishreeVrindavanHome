@@ -30,53 +30,43 @@
     border: 1.5px solid rgba(255,255,255,0.85); border-radius: 50%;
     box-shadow: 0 0 0 1px rgba(0,0,0,0.25);
   }
-  #viewBtn {
-    pointer-events: auto; position: absolute; top: 18px; right: 18px;
-    border: 0; cursor: pointer; border-radius: 8px; padding: 10px 14px;
-    background: #2c2824; color: #f7f3ec; font: 600 14px/1 "Segoe UI", system-ui, sans-serif;
+  #topBar {
+    pointer-events: none; position: absolute; top: 14px; right: 14px;
+    display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+    max-width: min(520px, calc(100vw - 28px));
   }
+  #topBar .actions {
+    pointer-events: auto; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px;
+  }
+  #topBar button {
+    border: 0; cursor: pointer; border-radius: 8px; padding: 10px 14px;
+    font: 600 14px/1 "Segoe UI", system-ui, sans-serif; white-space: nowrap;
+  }
+  #viewBtn { background: #2c2824; color: #f7f3ec; }
   #viewBtn:hover { background: #453e36; }
-  #vrBtn {
-    pointer-events: auto; position: absolute; top: 18px; right: 168px;
-    border: 0; cursor: pointer; border-radius: 8px; padding: 10px 14px;
-    background: #6b2a32; color: #f7f3ec; font: 600 14px/1 "Segoe UI", system-ui, sans-serif;
-  }
+  #vrBtn { background: #6b2a32; color: #f7f3ec; }
   #vrBtn:hover { background: #8a3640; }
-  #muteBtn {
-    pointer-events: auto; position: absolute; top: 18px; right: 278px;
-    border: 0; cursor: pointer; border-radius: 8px; padding: 10px 14px;
-    background: rgba(255,252,247,0.92); color: #2c2824;
-    font: 600 14px/1 "Segoe UI", system-ui, sans-serif;
-  }
+  #muteBtn { background: rgba(255,252,247,0.92); color: #2c2824; }
   #muteBtn:hover { background: #efe8de; }
   #muteBtn.on { background: #2c2824; color: #f7f3ec; }
   #movePad {
-    display: none; pointer-events: auto; position: absolute; left: 18px; bottom: 88px;
-    width: 128px; height: 128px; border-radius: 50%;
+    display: none; pointer-events: auto; position: absolute; left: 16px; bottom: 96px;
+    width: 118px; height: 118px; border-radius: 50%;
     background: rgba(255,252,247,0.32); border: 2px solid rgba(44,40,36,0.28);
     touch-action: none; z-index: 5;
   }
   #movePad .knob {
-    position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px;
+    position: absolute; left: 50%; top: 50%; width: 48px; height: 48px; margin: -24px;
     border-radius: 50%; background: rgba(44,40,36,0.55);
   }
   #lookHint {
-    display: none; pointer-events: none; position: absolute; right: 18px; bottom: 100px;
+    display: none; pointer-events: none; position: absolute; right: 16px; bottom: 108px;
     background: rgba(255,252,247,0.88); color: #2c2824; border-radius: 999px;
     padding: 8px 12px; font: 600 12px/1 "Segoe UI", system-ui, sans-serif;
-  }
-  @media (hover: none) and (pointer: coarse) {
-    #movePad, #lookHint { display: block; }
-    #hint { bottom: 18px; font-size: 12px; max-width: 92vw; white-space: normal; text-align: center; }
-  }
-  body.vr-on #hud #day, body.vr-on #hud #styles, body.vr-on #hud #viewBtn, body.vr-on #hud #cross,
-  body.vr-on #movePad, body.vr-on #lookHint, body.vr-on #muteBtn { display: none; }
-  body.vr-on #hint {
-    display: block; bottom: 28px; white-space: normal; max-width: 86vw; text-align: center;
+    max-width: 42vw; text-align: center;
   }
   #styles {
-    pointer-events: auto; position: absolute; top: 64px; right: 18px;
-    display: flex; flex-direction: column; gap: 6px;
+    pointer-events: auto; display: flex; flex-direction: column; gap: 6px; align-items: stretch;
   }
   #styles button {
     border: 0; cursor: pointer; border-radius: 8px; padding: 8px 12px;
@@ -95,6 +85,42 @@
   }
   #day input { flex: 1; accent-color: #8a5a32; min-width: 0; }
   #timeName { min-width: 76px; text-align: right; }
+  @media (hover: none) and (pointer: coarse) {
+    #movePad, #lookHint { display: block; }
+    #room {
+      top: 12px; left: 12px; right: 12px; max-width: none;
+      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    }
+    #room b { display: inline; font-size: 15px; }
+    #room span { font-size: 11px; }
+    #topBar {
+      left: 12px; right: 12px; top: 56px; max-width: none;
+      align-items: stretch;
+    }
+    #topBar .actions { justify-content: stretch; width: 100%; }
+    #topBar .actions button { flex: 1 1 0; padding: 10px 8px; font-size: 12px; text-align: center; }
+    #styles {
+      width: 100%; flex-direction: row; flex-wrap: nowrap; gap: 6px;
+    }
+    #styles button { flex: 1 1 0; text-align: center; padding: 8px 6px; font-size: 11px; }
+    #day {
+      bottom: 48px; width: calc(100vw - 24px); left: 12px; transform: none;
+      padding: 8px 12px; font-size: 12px; gap: 8px;
+    }
+    #timeName { min-width: 64px; }
+    #hint {
+      bottom: 10px; font-size: 12px; max-width: calc(100vw - 24px);
+      white-space: normal; text-align: center; line-height: 1.35;
+    }
+    #movePad { bottom: 112px; left: 12px; }
+    #lookHint { bottom: 124px; right: 12px; }
+  }
+  body.vr-on #hud #day, body.vr-on #hud #styles, body.vr-on #hud #viewBtn, body.vr-on #hud #cross,
+  body.vr-on #movePad, body.vr-on #lookHint, body.vr-on #muteBtn, body.vr-on #topBar .actions #muteBtn,
+  body.vr-on #topBar .actions #viewBtn { display: none; }
+  body.vr-on #hint {
+    display: block; bottom: 28px; white-space: normal; max-width: 86vw; text-align: center;
+  }
   #err {
     display: none; position: fixed; inset: 0; padding: 32px;
     background: #f6f1e8; color: #2c2824; font: 16px/1.5 system-ui, sans-serif;
@@ -111,16 +137,20 @@
     <span id="timeName">Morning</span>
   </div>
   <div id="cross"></div>
-  <button id="muteBtn" type="button">Mute</button>
-  <button id="vrBtn" type="button">Enter VR</button>
-  <button id="viewBtn" type="button">Dollhouse view</button>
-  <div id="movePad" aria-label="Move"><div class="knob"></div></div>
-  <div id="lookHint">Swipe or tilt to look</div>
-  <div id="styles">
-    <button type="button" data-style="modern">Modern Indian</button>
-    <button type="button" data-style="scandi">Traditional</button>
-    <button type="button" data-style="luxury">Palace</button>
+  <div id="topBar">
+    <div class="actions">
+      <button id="muteBtn" type="button">Mute</button>
+      <button id="vrBtn" type="button">Enter VR</button>
+      <button id="viewBtn" type="button">Dollhouse view</button>
+    </div>
+    <div id="styles">
+      <button type="button" data-style="modern">Modern Indian</button>
+      <button type="button" data-style="scandi">Traditional</button>
+      <button type="button" data-style="luxury">Palace</button>
+    </div>
   </div>
+  <div id="movePad" aria-label="Move"><div class="knob"></div></div>
+  <div id="lookHint">Swipe to turn · joystick to walk</div>
 </div>
 <div id="err"></div>
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
@@ -139,7 +169,7 @@ const DOOR_H = 7;
 const SILL = 2.55;
 const HEAD = 7.2;
 const EYE = 5.4; // adult eye height (~5'8" person)
-const VR_EYE = 5.4;
+const VR_EYE = 4.75; // slightly below desktop eye — phone VR felt tall at 5.4
 const RADIUS = 0.42;
 
 const liveW = 13, liveD = 17;
@@ -2028,7 +2058,7 @@ const walkSense = {
   grav: 9.81
 };
 function onDeviceMotion(ev) {
-  // Prefer linear acceleration so turning the head alone does not count as walking.
+  // Soft walk-in-place boost (secondary). Primary VR walk is lean/look-down.
   let m = 0;
   if (ev.acceleration && (ev.acceleration.x != null || ev.acceleration.y != null)) {
     const x = ev.acceleration.x || 0, y = ev.acceleration.y || 0, z = ev.acceleration.z || 0;
@@ -2041,15 +2071,14 @@ function onDeviceMotion(ev) {
     walkSense.grav = walkSense.grav * 0.98 + g * 0.02;
     m = Math.abs(g - walkSense.grav);
   } else return;
-  walkSense.energy = walkSense.energy * 0.88 + m * 0.12;
+  walkSense.energy = walkSense.energy * 0.9 + m * 0.1;
   const now = performance.now();
-  // Real steps only: strong vertical-ish peaks, spaced like a gait — not a turn.
-  if (m > 3.4 && now - walkSense.lastPeak > 420) {
+  if (m > 1.8 && now - walkSense.lastPeak > 280) {
     walkSense.lastPeak = now;
     walkSense.peaks.push(now);
-    walkSense.peaks = walkSense.peaks.filter((t) => now - t < 1600);
-    if (walkSense.peaks.length >= 3 && walkSense.energy > 1.15) {
-      walkSense.walkUntil = now + 380;
+    walkSense.peaks = walkSense.peaks.filter((t) => now - t < 1200);
+    if (walkSense.peaks.length >= 2 && walkSense.energy > 0.55) {
+      walkSense.walkUntil = now + 480;
     }
   }
 }
@@ -2077,11 +2106,11 @@ function stopWalkSensors() {
 
 async function enterVrSession(session) {
   document.body.classList.add("vr-on");
-  document.getElementById("hint").textContent = "Look to turn · walk in place or forward to move slowly";
+  document.getElementById("hint").textContent =
+    "Look around to turn · tilt phone / look slightly down to walk slowly";
   if (dollhouse) setDollhouse(false);
   ensureAudio();
   await enableWalkSensors();
-  mobileLook.enabled = false;
   rig.position.set(camera.position.x, 0, camera.position.z);
   xrHead.position.set(0, VR_EYE, 0);
   camera.position.set(0, 0, 0);
@@ -2103,9 +2132,9 @@ async function enterVrSession(session) {
     pitch = 0;
     camera.rotation.set(pitch, yaw, 0);
     vrBtn.textContent = "Enter VR";
-    document.getElementById("hint").textContent =
-      "Swipe or tilt to look · use the joystick to walk · " + STYLES[styleId].name;
-    maybeEnableMobileLook();
+    document.getElementById("hint").textContent = isTouchUi
+      ? "Swipe to turn · joystick to walk · " + STYLES[styleId].name
+      : "WASD to walk · " + STYLES[styleId].name;
   });
 }
 const vrBtn = document.getElementById("vrBtn");
@@ -2145,17 +2174,11 @@ vrBtn.addEventListener("click", async (e) => {
 });
 const isTouchUi = matchMedia("(hover: none) and (pointer: coarse)").matches;
 const moveStick = { x: 0, z: 0 };
-const mobileLook = {
-  enabled: false,
-  baseYaw: 0,
-  baseAlpha: null,
-  baseBeta: null
-};
 function setMoveStick(nx, nz) {
   moveStick.x = nx;
   moveStick.z = nz;
   const knob = document.querySelector("#movePad .knob");
-  if (knob) knob.style.transform = `translate(${nx * 36}px, ${nz * 36}px)`;
+  if (knob) knob.style.transform = `translate(${nx * 34}px, ${nz * 34}px)`;
 }
 function bindMovePad(el) {
   if (!el) return;
@@ -2175,7 +2198,6 @@ function bindMovePad(el) {
     e.stopPropagation();
     pid = e.changedTouches[0].identifier;
     read(e);
-    maybeEnableMobileLook();
   }, { passive: false });
   el.addEventListener("touchmove", (e) => { e.preventDefault(); read(e); }, { passive: false });
   const end = (e) => {
@@ -2188,36 +2210,6 @@ function bindMovePad(el) {
 }
 bindMovePad(document.getElementById("movePad"));
 
-function onDeviceOrientation(ev) {
-  if (!mobileLook.enabled || dollhouse || renderer.xr.isPresenting) return;
-  if (ev.alpha == null || ev.beta == null) return;
-  if (mobileLook.baseAlpha == null) {
-    mobileLook.baseAlpha = ev.alpha;
-    mobileLook.baseBeta = ev.beta;
-    mobileLook.baseYaw = yaw;
-  }
-  let dAlpha = ev.alpha - mobileLook.baseAlpha;
-  if (dAlpha > 180) dAlpha -= 360;
-  if (dAlpha < -180) dAlpha += 360;
-  yaw = mobileLook.baseYaw - dAlpha * Math.PI / 180;
-  const dBeta = (ev.beta - mobileLook.baseBeta) * Math.PI / 180;
-  pitch = Math.max(-1.15, Math.min(1.15, -dBeta * 0.85));
-}
-async function maybeEnableMobileLook() {
-  if (!isTouchUi || mobileLook.enabled || renderer.xr.isPresenting) return;
-  try {
-    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
-      const r = await DeviceOrientationEvent.requestPermission();
-      if (r !== "granted") return;
-    }
-  } catch (_) { return; }
-  mobileLook.enabled = true;
-  mobileLook.baseAlpha = null;
-  addEventListener("deviceorientation", onDeviceOrientation);
-  const hint = document.getElementById("lookHint");
-  if (hint) hint.textContent = "Tilt phone to look · joystick to walk";
-}
-
 renderer.domElement.addEventListener("click", (e) => {
   if (pickDoor(e.clientX, e.clientY)) return;
   if (!dollhouse && !isTouchUi && document.pointerLockElement !== renderer.domElement) {
@@ -2228,7 +2220,6 @@ renderer.domElement.addEventListener("pointerdown", (e) => {
   if (e.target.closest && e.target.closest("#movePad")) return;
   dragging = true;
   lastX = e.clientX; lastY = e.clientY;
-  if (isTouchUi) maybeEnableMobileLook();
 });
 addEventListener("pointerup", () => { dragging = false; });
 addEventListener("pointercancel", () => { dragging = false; });
@@ -2245,14 +2236,10 @@ addEventListener("pointermove", (e) => {
   const dy = locked ? e.movementY : e.clientY - lastY;
   lastX = e.clientX; lastY = e.clientY;
   if (!dx && !dy) return;
-  // Swipe / drag look (also works on mobile). Gyro can refine after permission.
-  yaw -= dx * (isTouchUi ? 0.0035 : 0.0022);
-  pitch -= dy * (isTouchUi ? 0.0032 : 0.0022);
+  // Swipe / drag to turn only (no automatic gyro tilt on mobile).
+  yaw -= dx * (isTouchUi ? 0.0042 : 0.0022);
+  pitch -= dy * (isTouchUi ? 0.0036 : 0.0022);
   pitch = Math.max(-1.25, Math.min(1.25, pitch));
-  if (isTouchUi && mobileLook.enabled) {
-    mobileLook.baseYaw = yaw;
-    mobileLook.baseAlpha = null;
-  }
 });
 addEventListener("wheel", (e) => {
   if (!dollhouse) return;
@@ -2260,7 +2247,7 @@ addEventListener("wheel", (e) => {
   applyOrbit();
 }, { passive: true });
 if (isTouchUi) {
-  document.getElementById("hint").textContent = "Swipe or tilt to look · use the joystick to walk";
+  document.getElementById("hint").textContent = "Swipe to turn · use the joystick to walk";
 }
 
 const clock = new THREE.Clock();
@@ -2424,10 +2411,12 @@ function frame() {
     poseCurtain(curtain);
   }
   if (presenting) {
-    // Lock adult standing height. WebXR often reports meters; our world is feet.
+    // Lock standing height. WebXR pose is often meters; world is feet.
     xrHead.position.y = VR_EYE;
     camera.position.y = 0;
     camera.getWorldDirection(_look);
+    // Pitch from look vector: 0 = level, positive = looking down.
+    const lookPitch = Math.asin(Math.max(-1, Math.min(1, -_look.y)));
     _look.y = 0;
     if (_look.lengthSq() > 0.0001) {
       _look.normalize();
@@ -2438,10 +2427,13 @@ function frame() {
       _prevPose.set(camera.position.x, 0, camera.position.z);
       hasPrevPose = true;
       const tracked = poseStep > 0.003 && poseStep < 0.35;
-      // Only walk when real steps were detected — not when you only turn your head.
-      const stepping = now < walkSense.walkUntil && walkSense.energy > 1.1;
-      if (stepping && !tracked) {
-        const speed = 1.65 * dt; // slow adult stroll
+      // Hands-free: lean / look slightly down to walk. Level gaze = stand still.
+      const lean = Math.max(0, Math.min(1, (lookPitch - 0.12) / 0.38));
+      const stepping = now < walkSense.walkUntil && walkSense.energy > 0.5;
+      let forward = lean;
+      if (stepping) forward = Math.max(forward, 0.55);
+      if (forward > 0.04 && !tracked) {
+        const speed = (1.35 + 0.9 * forward) * forward * dt;
         slide(rig, _look.x * speed, _look.z * speed);
       }
     }
