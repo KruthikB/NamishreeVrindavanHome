@@ -50,7 +50,27 @@
   }
   #muteBtn:hover { background: #efe8de; }
   #muteBtn.on { background: #2c2824; color: #f7f3ec; }
-  body.vr-on #hud #day, body.vr-on #hud #styles, body.vr-on #hud #viewBtn, body.vr-on #hud #cross { display: none; }
+  #movePad {
+    display: none; pointer-events: auto; position: absolute; left: 18px; bottom: 88px;
+    width: 128px; height: 128px; border-radius: 50%;
+    background: rgba(255,252,247,0.32); border: 2px solid rgba(44,40,36,0.28);
+    touch-action: none; z-index: 5;
+  }
+  #movePad .knob {
+    position: absolute; left: 50%; top: 50%; width: 52px; height: 52px; margin: -26px;
+    border-radius: 50%; background: rgba(44,40,36,0.55);
+  }
+  #lookHint {
+    display: none; pointer-events: none; position: absolute; right: 18px; bottom: 100px;
+    background: rgba(255,252,247,0.88); color: #2c2824; border-radius: 999px;
+    padding: 8px 12px; font: 600 12px/1 "Segoe UI", system-ui, sans-serif;
+  }
+  @media (hover: none) and (pointer: coarse) {
+    #movePad, #lookHint { display: block; }
+    #hint { bottom: 18px; font-size: 12px; max-width: 92vw; white-space: normal; text-align: center; }
+  }
+  body.vr-on #hud #day, body.vr-on #hud #styles, body.vr-on #hud #viewBtn, body.vr-on #hud #cross,
+  body.vr-on #movePad, body.vr-on #lookHint, body.vr-on #muteBtn { display: none; }
   body.vr-on #hint {
     display: block; bottom: 28px; white-space: normal; max-width: 86vw; text-align: center;
   }
@@ -94,6 +114,8 @@
   <button id="muteBtn" type="button">Mute</button>
   <button id="vrBtn" type="button">Enter VR</button>
   <button id="viewBtn" type="button">Dollhouse view</button>
+  <div id="movePad" aria-label="Move"><div class="knob"></div></div>
+  <div id="lookHint">Swipe or tilt to look</div>
   <div id="styles">
     <button type="button" data-style="modern">Modern Indian</button>
     <button type="button" data-style="scandi">Traditional</button>
@@ -116,7 +138,8 @@ const H = 10;
 const DOOR_H = 7;
 const SILL = 2.55;
 const HEAD = 7.2;
-const EYE = 5.5;
+const EYE = 5.4; // adult eye height (~5'8" person)
+const VR_EYE = 5.4;
 const RADIUS = 0.42;
 
 const liveW = 13, liveD = 17;
@@ -174,11 +197,15 @@ document.body.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
 const rig = new THREE.Group();
+const xrHead = new THREE.Group();
+xrHead.position.y = VR_EYE;
+rig.add(xrHead);
 scene.add(rig);
 scene.fog = new THREE.Fog(0xc5d4e0, 70, 140);
 
 const camera = new THREE.PerspectiveCamera(68, innerWidth / innerHeight, 0.08, 240);
 camera.rotation.order = "YXZ";
+scene.add(camera);
 
 const hemi = new THREE.HemisphereLight(0xf4efe4, 0xd9cbb8, 0.38);
 scene.add(hemi);
@@ -1995,13 +2022,15 @@ let hasPrevPose = false;
 const walkSense = {
   listening: false,
   energy: 0,
-  boost: 0,
   lastPeak: 0,
+  peaks: [],
+  walkUntil: 0,
   grav: 9.81
 };
 function onDeviceMotion(ev) {
+  // Prefer linear acceleration so turning the head alone does not count as walking.
   let m = 0;
-  if (ev.acceleration && ev.acceleration.x != null) {
+  if (ev.acceleration && (ev.acceleration.x != null || ev.acceleration.y != null)) {
     const x = ev.acceleration.x || 0, y = ev.acceleration.y || 0, z = ev.acceleration.z || 0;
     m = Math.hypot(x, y, z);
   } else if (ev.accelerationIncludingGravity) {
@@ -2009,14 +2038,19 @@ function onDeviceMotion(ev) {
     const y = ev.accelerationIncludingGravity.y || 0;
     const z = ev.accelerationIncludingGravity.z || 0;
     const g = Math.hypot(x, y, z);
-    walkSense.grav = walkSense.grav * 0.95 + g * 0.05;
+    walkSense.grav = walkSense.grav * 0.98 + g * 0.02;
     m = Math.abs(g - walkSense.grav);
   } else return;
-  walkSense.energy = walkSense.energy * 0.82 + m * 0.18;
+  walkSense.energy = walkSense.energy * 0.88 + m * 0.12;
   const now = performance.now();
-  if (m > 1.25 && now - walkSense.lastPeak > 280) {
+  // Real steps only: strong vertical-ish peaks, spaced like a gait — not a turn.
+  if (m > 3.4 && now - walkSense.lastPeak > 420) {
     walkSense.lastPeak = now;
-    walkSense.boost = 1;
+    walkSense.peaks.push(now);
+    walkSense.peaks = walkSense.peaks.filter((t) => now - t < 1600);
+    if (walkSense.peaks.length >= 3 && walkSense.energy > 1.15) {
+      walkSense.walkUntil = now + 380;
+    }
   }
 }
 async function enableWalkSensors() {
@@ -2037,21 +2071,24 @@ function stopWalkSensors() {
   removeEventListener("devicemotion", onDeviceMotion);
   walkSense.listening = false;
   walkSense.energy = 0;
-  walkSense.boost = 0;
+  walkSense.peaks = [];
+  walkSense.walkUntil = 0;
 }
 
 async function enterVrSession(session) {
   document.body.classList.add("vr-on");
-  document.getElementById("hint").textContent = "Look to turn · walk to move · hands free";
+  document.getElementById("hint").textContent = "Look to turn · walk in place or forward to move slowly";
   if (dollhouse) setDollhouse(false);
   ensureAudio();
   await enableWalkSensors();
+  mobileLook.enabled = false;
   rig.position.set(camera.position.x, 0, camera.position.z);
+  xrHead.position.set(0, VR_EYE, 0);
   camera.position.set(0, 0, 0);
   camera.rotation.set(0, 0, 0);
   camera.quaternion.identity();
   hasPrevPose = false;
-  rig.add(camera);
+  xrHead.add(camera);
   await renderer.xr.setSession(session);
   vrBtn.textContent = "Exit VR";
   session.addEventListener("end", () => {
@@ -2067,7 +2104,8 @@ async function enterVrSession(session) {
     camera.rotation.set(pitch, yaw, 0);
     vrBtn.textContent = "Enter VR";
     document.getElementById("hint").textContent =
-      "WASD to walk · doors open as you approach, click to hold · curtains open in the room, click to shut · " + STYLES[styleId].name;
+      "Swipe or tilt to look · use the joystick to walk · " + STYLES[styleId].name;
+    maybeEnableMobileLook();
   });
 }
 const vrBtn = document.getElementById("vrBtn");
@@ -2105,39 +2143,125 @@ vrBtn.addEventListener("click", async (e) => {
     vrBtn.textContent = "VR unavailable";
   }
 });
+const isTouchUi = matchMedia("(hover: none) and (pointer: coarse)").matches;
+const moveStick = { x: 0, z: 0 };
+const mobileLook = {
+  enabled: false,
+  baseYaw: 0,
+  baseAlpha: null,
+  baseBeta: null
+};
+function setMoveStick(nx, nz) {
+  moveStick.x = nx;
+  moveStick.z = nz;
+  const knob = document.querySelector("#movePad .knob");
+  if (knob) knob.style.transform = `translate(${nx * 36}px, ${nz * 36}px)`;
+}
+function bindMovePad(el) {
+  if (!el) return;
+  let pid = null;
+  const read = (e) => {
+    const t = [...e.changedTouches].find((p) => p.identifier === pid) || e.changedTouches[0];
+    if (!t) return;
+    const r = el.getBoundingClientRect();
+    const dx = (t.clientX - (r.left + r.width / 2)) / (r.width * 0.42);
+    const dy = (t.clientY - (r.top + r.height / 2)) / (r.height * 0.42);
+    const len = Math.hypot(dx, dy) || 1;
+    const s = Math.min(1, len);
+    setMoveStick((dx / len) * s, (dy / len) * s);
+  };
+  el.addEventListener("touchstart", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    pid = e.changedTouches[0].identifier;
+    read(e);
+    maybeEnableMobileLook();
+  }, { passive: false });
+  el.addEventListener("touchmove", (e) => { e.preventDefault(); read(e); }, { passive: false });
+  const end = (e) => {
+    if (![...e.changedTouches].some((p) => p.identifier === pid)) return;
+    pid = null;
+    setMoveStick(0, 0);
+  };
+  el.addEventListener("touchend", end);
+  el.addEventListener("touchcancel", end);
+}
+bindMovePad(document.getElementById("movePad"));
+
+function onDeviceOrientation(ev) {
+  if (!mobileLook.enabled || dollhouse || renderer.xr.isPresenting) return;
+  if (ev.alpha == null || ev.beta == null) return;
+  if (mobileLook.baseAlpha == null) {
+    mobileLook.baseAlpha = ev.alpha;
+    mobileLook.baseBeta = ev.beta;
+    mobileLook.baseYaw = yaw;
+  }
+  let dAlpha = ev.alpha - mobileLook.baseAlpha;
+  if (dAlpha > 180) dAlpha -= 360;
+  if (dAlpha < -180) dAlpha += 360;
+  yaw = mobileLook.baseYaw - dAlpha * Math.PI / 180;
+  const dBeta = (ev.beta - mobileLook.baseBeta) * Math.PI / 180;
+  pitch = Math.max(-1.15, Math.min(1.15, -dBeta * 0.85));
+}
+async function maybeEnableMobileLook() {
+  if (!isTouchUi || mobileLook.enabled || renderer.xr.isPresenting) return;
+  try {
+    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+      const r = await DeviceOrientationEvent.requestPermission();
+      if (r !== "granted") return;
+    }
+  } catch (_) { return; }
+  mobileLook.enabled = true;
+  mobileLook.baseAlpha = null;
+  addEventListener("deviceorientation", onDeviceOrientation);
+  const hint = document.getElementById("lookHint");
+  if (hint) hint.textContent = "Tilt phone to look · joystick to walk";
+}
+
 renderer.domElement.addEventListener("click", (e) => {
   if (pickDoor(e.clientX, e.clientY)) return;
-  if (!dollhouse && document.pointerLockElement !== renderer.domElement) {
+  if (!dollhouse && !isTouchUi && document.pointerLockElement !== renderer.domElement) {
     renderer.domElement.requestPointerLock();
   }
 });
-renderer.domElement.addEventListener("mousedown", (e) => {
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  if (e.target.closest && e.target.closest("#movePad")) return;
   dragging = true;
   lastX = e.clientX; lastY = e.clientY;
+  if (isTouchUi) maybeEnableMobileLook();
 });
-addEventListener("mouseup", () => { dragging = false; });
-addEventListener("mousemove", (e) => {
+addEventListener("pointerup", () => { dragging = false; });
+addEventListener("pointercancel", () => { dragging = false; });
+addEventListener("pointermove", (e) => {
   if (dollhouse && dragging) {
     orbit.theta -= e.movementX * 0.005;
     orbit.phi = Math.max(0.28, Math.min(1.25, orbit.phi - e.movementY * 0.004));
     applyOrbit();
     return;
   }
+  if (!dragging || dollhouse || renderer.xr.isPresenting) return;
   const locked = document.pointerLockElement === renderer.domElement;
-  const dx = locked ? e.movementX : (dragging ? e.clientX - lastX : 0);
-  const dy = locked ? e.movementY : (dragging ? e.clientY - lastY : 0);
+  const dx = locked ? e.movementX : e.clientX - lastX;
+  const dy = locked ? e.movementY : e.clientY - lastY;
   lastX = e.clientX; lastY = e.clientY;
   if (!dx && !dy) return;
-  if (dollhouse) return;
-  yaw -= dx * 0.0022;
-  pitch -= dy * 0.0022;
+  // Swipe / drag look (also works on mobile). Gyro can refine after permission.
+  yaw -= dx * (isTouchUi ? 0.0035 : 0.0022);
+  pitch -= dy * (isTouchUi ? 0.0032 : 0.0022);
   pitch = Math.max(-1.25, Math.min(1.25, pitch));
+  if (isTouchUi && mobileLook.enabled) {
+    mobileLook.baseYaw = yaw;
+    mobileLook.baseAlpha = null;
+  }
 });
 addEventListener("wheel", (e) => {
   if (!dollhouse) return;
   orbit.dist = Math.max(24, Math.min(110, orbit.dist + Math.sign(e.deltaY) * 3));
   applyOrbit();
 }, { passive: true });
+if (isTouchUi) {
+  document.getElementById("hint").textContent = "Swipe or tilt to look · use the joystick to walk";
+}
 
 const clock = new THREE.Clock();
 const roomEl = document.getElementById("room");
@@ -2300,25 +2424,24 @@ function frame() {
     poseCurtain(curtain);
   }
   if (presenting) {
-    // Hands-free character: look with your head; walk with your body (phone step sensors).
-    // 6DoF headsets already move via WebXR pose; step sensing covers phone VR glasses.
+    // Lock adult standing height. WebXR often reports meters; our world is feet.
+    xrHead.position.y = VR_EYE;
+    camera.position.y = 0;
     camera.getWorldDirection(_look);
     _look.y = 0;
     if (_look.lengthSq() > 0.0001) {
       _look.normalize();
-      walkSense.boost *= Math.exp(-dt * 3.2);
-      const activity = Math.max(0, walkSense.energy - 0.28);
+      const now = performance.now();
       const poseStep = hasPrevPose
         ? Math.hypot(camera.position.x - _prevPose.x, camera.position.z - _prevPose.z)
         : 0;
       _prevPose.set(camera.position.x, 0, camera.position.z);
       hasPrevPose = true;
-      // If the headset is already tracking real position, ease off synthetic steps.
-      const tracked = poseStep > 0.002 && poseStep < 0.4;
-      let forward = Math.min(1.55, activity * 1.35 + walkSense.boost * 0.95);
-      if (tracked) forward *= 0.2;
-      if (forward > 0.06) {
-        const speed = 6.2 * forward * dt;
+      const tracked = poseStep > 0.003 && poseStep < 0.35;
+      // Only walk when real steps were detected — not when you only turn your head.
+      const stepping = now < walkSense.walkUntil && walkSense.energy > 1.1;
+      if (stepping && !tracked) {
+        const speed = 1.65 * dt; // slow adult stroll
         slide(rig, _look.x * speed, _look.z * speed);
       }
     }
@@ -2335,9 +2458,14 @@ function frame() {
     if (keys.KeyS || keys.ArrowDown) iz += 1;
     if (keys.KeyA || keys.ArrowLeft) ix -= 1;
     if (keys.KeyD || keys.ArrowRight) ix += 1;
+    // Mobile on-screen joystick (z+ is stick down = move backward).
+    if (moveStick.x || moveStick.z) {
+      ix += moveStick.x;
+      iz += moveStick.z;
+    }
     if (ix || iz) {
       const len = Math.hypot(ix, iz) || 1;
-      const speed = (keys.ShiftLeft || keys.ShiftRight ? 14 : 7.2) * dt;
+      const speed = (keys.ShiftLeft || keys.ShiftRight ? 14 : (isTouchUi ? 5.2 : 7.2)) * dt;
       const fx = -Math.sin(yaw), fz = -Math.cos(yaw);
       const rx = Math.cos(yaw), rz = -Math.sin(yaw);
       const dx = ((fx * -iz + rx * ix) / len) * speed;
